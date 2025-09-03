@@ -1,0 +1,7 @@
+gspread
+pandas
+openai
+Flask
+gspread-dataframe<4
+oauth2client
+pyngrok

@@ -1,0 +1,17 @@
+# Tệp chứa thông tin nhạy cảm và bí mật
+credentials.json
+.env
+
+# Thư mục cache của Python
+__pycache__/
+
+# Các file hệ thống của HĐH
+.DS_Store
+Thumbs.db
+
+# Các file log
+*.log
+
+# Thư mục môi trường ảo (nếu bạn dùng)
+venv/
+.venv/
