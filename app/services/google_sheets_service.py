@@ -224,7 +224,11 @@ def add_knowledge(knowledge_data):
             knowledge_data.get('time_question', ''),
             knowledge_data.get('answer'),
             knowledge_data.get('answering_unit', ''),
-            knowledge_data.get('time_answer', '')
+            knowledge_data.get('time_answer', ''),
+            knowledge_data.get('document', ''),
+            knowledge_data.get('question_no', ''),
+            knowledge_data.get('Date_of_issue', ''),
+            knowledge_data.get('Text_link', ''),
         ]
         worksheet = get_worksheet(GOOGLE_SHEET_NAME)
         if not worksheet:
