@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
     GOOGLE_SHEET_NAME = os.getenv("GOOGLE_SHEET_NAME")
     HISTORY_WORKSHEET_NAME = os.getenv("HISTORY_WORKSHEET_NAME")

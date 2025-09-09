@@ -24,11 +24,11 @@ def find_relevant_data(question, dataframe, max_rows=5):
 # sửa file answer_question_with_gemini
 def answer_question_with_gemini(question, dataframe):
     """
-    Gửi câu hỏi và dữ liệu LIÊN QUAN đến DeepSeek API để nhận câu trả lời.
+    Gửi câu hỏi và dữ liệu LIÊN QUAN đến Genimi API để nhận câu trả lời.
     """
     total_start_time = time.perf_counter()
     if not api_key:
-        return "Lỗi: API key của DeepSeek chưa được cấu hình."
+        return "Lỗi: API key của Genimi chưa được cấu hình."
 
     # client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com/v1")
 
@@ -41,7 +41,7 @@ def answer_question_with_gemini(question, dataframe):
 
     # BƯỚC 2: Sử dụng prompt cải tiến từ ví dụ của bạn
     prompt = f"""
-    Dựa vào dữ liệu dưới đây từ một bảng tính:
+    Dựa vào dữ liệu dưới đây đã được cung cấp:
 
     {data_string}
 
