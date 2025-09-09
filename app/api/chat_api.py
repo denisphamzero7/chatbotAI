@@ -20,7 +20,7 @@ def ask():
         return jsonify({'error': 'Câu hỏi không được để trống.'}), 400
 
     print(f"Nhận được câu hỏi: {question}")
-    answer = ai_service.answer_question_with_deepseek(question, sheet_data_df.copy())
+    answer,processing_time = ai_service.answer_question_with_gemini(question, sheet_data_df.copy())
 
     log_data = [
         datetime.datetime.now().strftime("%Y%m%d%H%M%S%f"),
@@ -29,7 +29,10 @@ def ask():
         answer
     ]
     gs.log_chat_history(log_data)
-    return jsonify({'answer': answer})
+    return jsonify({
+        'answer': answer,
+        'process_time_seconds': round(processing_time, 2)
+    })
 
 @chat_bp.route('/history-chat', methods=['GET'])
 def get_log_chat():

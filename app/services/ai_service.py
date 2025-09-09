@@ -2,7 +2,8 @@
 import pandas as pd
 from openai import OpenAI
 from config import Config
-
+import time
+import google.generativeai as genai
 api_key = Config.DEEPSEEK_API_KEY
 
 def find_relevant_data(question, dataframe, max_rows=5):
@@ -20,15 +21,16 @@ def find_relevant_data(question, dataframe, max_rows=5):
     if relevant_df.empty or dataframe.loc[relevant_df.index]['relevance'].sum() == 0:
         return pd.DataFrame()
     return relevant_df
-
-def answer_question_with_deepseek(question, dataframe):
+# sửa file answer_question_with_gemini
+def answer_question_with_gemini(question, dataframe):
     """
     Gửi câu hỏi và dữ liệu LIÊN QUAN đến DeepSeek API để nhận câu trả lời.
     """
+    total_start_time = time.perf_counter()
     if not api_key:
         return "Lỗi: API key của DeepSeek chưa được cấu hình."
 
-    client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com/v1")
+    # client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com/v1")
 
     # BƯỚC 1: Tìm dữ liệu liên quan trước khi gửi cho AI
     relevant_data = find_relevant_data(question, dataframe)
@@ -52,18 +54,22 @@ def answer_question_with_deepseek(question, dataframe):
     - Giọng văn thân thiện, rõ ràng và chuyên nghiệp.
     - Ưu tiên sắp xếp thông tin theo cấu trúc dễ đọc (ví dụ: gạch đầu dòng nếu cần).
     """
-
     try:
-        response = client.chat.completions.create(
-            model="deepseek-chat",
-            messages=[
-                {"role": "system", "content": "Bạn là một trợ lý AI chuyên nghiệp, phân tích dữ liệu từ Google Sheet và trả lời câu hỏi bằng tiếng Việt."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=2000,
-            temperature=0.2,
-        )
-        return response.choices[0].message.content.strip()
+        model = genai.GenerativeModel('gemini-2.0-flash') # Tên model đúng
+        
+        api_start_time = time.perf_counter()
+        print("--- [API_TIMER] Bắt đầu gọi Gemini API... ---")
+        
+        response = model.generate_content(prompt)
+        
+        api_end_time = time.perf_counter()
+        print(f"--- [API_TIMER] Gemini API phản hồi sau: {api_end_time - api_start_time:.4f} giây ---")
+        
+        # Xử lý response của Gemini
+        answer = response.text.strip()
+        total_end_time = time.perf_counter()
+        return answer, total_end_time - total_start_time
     except Exception as e:
-        print(f"Đã xảy ra lỗi khi gọi DeepSeek API: {e}")
-        return "Đã có lỗi xảy ra khi kết nối tới dịch vụ AI."
+        print(f"AI Service: Đã xảy ra lỗi khi gọi Gemini API: {e}")
+        total_end_time = time.perf_counter()
+        return "Đã có lỗi xảy ra khi kết nối tới dịch vụ AI của Google.", total_end_time - total_start_time
