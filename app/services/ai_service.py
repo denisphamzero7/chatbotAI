@@ -6,7 +6,7 @@ import time
 import google.generativeai as genai
 api_key = Config.DEEPSEEK_API_KEY
 
-def find_relevant_data(question, dataframe, max_rows=5):
+def find_relevant_data(question, dataframe, max_rows=12):
     # ... (giữ nguyên code của hàm find_relevant_data)
     question_words = set(question.lower().split())
     dataframe['search_col'] = dataframe.apply(lambda row: ' '.join(row.astype(str)).lower(), axis=1)
@@ -33,7 +33,7 @@ def answer_question_with_gemini(question, dataframe):
     # client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com/v1")
 
     # BƯỚC 1: Tìm dữ liệu liên quan trước khi gửi cho AI
-    relevant_data = find_relevant_data(question, dataframe)
+    relevant_data = find_relevant_data(question, dataframe, max_rows=3)
 
     # Nếu không có gì liên quan, dùng toàn bộ dữ liệu. Ngược lại, chỉ dùng dữ liệu liên quan.
     data_to_send = dataframe if relevant_data.empty else relevant_data
@@ -41,18 +41,57 @@ def answer_question_with_gemini(question, dataframe):
 
     # BƯỚC 2: Sử dụng prompt cải tiến từ ví dụ của bạn
     prompt = f"""
-    Dựa vào dữ liệu dưới đây đã được cung cấp:
+   **[BẮT ĐẦU PROMPT]**
+
+**Bối cảnh:** Bạn là một trợ lý thú vị phân tích thông tin chuyên nghiệp. Nhiệm vụ của bạn là xử lý và trích xuất dữ liệu một cách chính xác tuyệt đối từ văn bản được cung cấp.
+
+---
+
+**Dữ liệu cung cấp:**
 
     {data_string}
 
-    Hãy trả lời câu hỏi sau: "{question}"
+  **Yêu cầu:**
 
-    **Yêu cầu quan trọng:**
-    - CHỈ sử dụng thông tin từ dữ liệu được cung cấp trong bảng tính trên.
-    - KHÔNG sử dụng bất kỳ kiến thức ngoài nào khác.
-    - Nếu dữ liệu không đủ để trả lời, hãy nói rõ: "Dữ liệu không đủ để trả lời câu hỏi này."
-    - Giọng văn thân thiện, rõ ràng và chuyên nghiệp.
-    - Ưu tiên sắp xếp thông tin theo cấu trúc dễ đọc (ví dụ: gạch đầu dòng nếu cần).
+Dựa **DUY NHẤT** vào nội dung trong phần "Dữ liệu cung cấp" ở trên, hãy soạn câu trả lời cho câu hỏi sau:
+
+`"{question}"`
+
+---
+
+**Các quy tắc bắt buộc:**
+
+1.  **Phạm vi thông tin:** Tuyệt đối không được suy diễn, bình luận thêm, hay sử dụng bất kỳ kiến thức nào bên ngoài "Dữ liệu cung cấp". Mọi thông tin trong câu trả lời phải có thể truy vết được về nguồn dữ liệu.
+2.  **Trích dẫn nguồn:** Ngay sau mỗi luận điểm, thông tin, hoặc dữ liệu được trích xuất, bạn **PHẢI** đính kèm nguồn theo định dạng sau:
+    `(Nguồn: [Số văn bản], [Loại văn bản] - tham khảo tại [Link văn bản])`
+3.  **Xử lý trường hợp thiếu dữ liệu:** Nếu toàn bộ dữ liệu được cung cấp không chứa thông tin để trả lời câu hỏi, hãy trả lời chính xác như sau:
+    `"Dữ liệu được cung cấp không đủ để trả lời câu hỏi này."`
+
+---
+
+**Định dạng và văn phong:**
+
+* **Văn phong:** Chuyên nghiệp, rõ ràng, nhưng vẫn giữ sự gần gũi, thân thiện.
+* **Cấu trúc:** Trình bày câu trả lời một cách logic, sử dụng gạch đầu dòng (-) cho các ý chính để người đọc dễ theo dõi.
+* **Câu kết:** Luôn kết thúc câu trả lời bằng câu: `Hy vọng những thông tin trên hữu ích cho bạn!`
+
+---
+
+**Ví dụ về kết quả mong muốn:**
+
+**Câu hỏi:** *Thủ tục gia hạn giấy phép lao động cho người nước ngoài cần những gì?*
+
+**Câu trả lời mẫu:**
+Chào bạn nhé,
+
+Dựa trên các thông tin được cung cấp, thủ tục gia hạn giấy phép lao động cho người nước ngoài bao gồm các yêu cầu sau:
+
+- Người sử dụng lao động cần phải nộp một bộ hồ sơ đề nghị gia hạn giấy phép lao động cho cơ quan có thẩm quyền. `(Nguồn: 123/2025/NĐ-CP, Nghị định - tham khảo tại https://example.com/link-1)`
+- Hồ sơ phải được nộp trước ít nhất 5 ngày nhưng không quá 45 ngày trước ngày giấy phép lao động hết hạn. `(Nguồn: 456/2025/TT-BLĐTBXH, Thông tư - tham khảo tại https://example.com/link-2)`
+
+Hy vọng những thông tin trên hữu ích cho bạn!
+
+**[KẾT THÚC PROMPT]**
     """
     try:
         model = genai.GenerativeModel('gemini-2.0-flash') # Tên model đúng
