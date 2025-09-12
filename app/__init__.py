@@ -1,12 +1,14 @@
 # /chatbotAI/app/__init__.py
 from flask import Flask
 from config import Config
+from flask_cors import CORS
 
 def create_app(config_class=Config):
     """
     Application Factory: Hàm tạo và cấu hình ứng dụng Flask.
     """
     app = Flask(__name__)
+    CORS(app, origins="*")
     app.config.from_object(config_class)
 
     # Sử dụng app_context để đảm bảo context của ứng dụng có sẵn
