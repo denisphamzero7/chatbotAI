@@ -5,7 +5,7 @@ from config import Config
 import time
 import google.generativeai as genai
 api_key = Config.DEEPSEEK_API_KEY
-
+# mới thêm max_row=12
 def find_relevant_data(question, dataframe, max_rows=12):
     # ... (giữ nguyên code của hàm find_relevant_data)
     question_words = set(question.lower().split())
@@ -33,7 +33,7 @@ def answer_question_with_gemini(question, dataframe):
     # client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com/v1")
 
     # BƯỚC 1: Tìm dữ liệu liên quan trước khi gửi cho AI
-    relevant_data = find_relevant_data(question, dataframe, max_rows=3)
+    relevant_data = find_relevant_data(question, dataframe, max_rows=1)
 
     # Nếu không có gì liên quan, dùng toàn bộ dữ liệu. Ngược lại, chỉ dùng dữ liệu liên quan.
     data_to_send = dataframe if relevant_data.empty else relevant_data
@@ -62,8 +62,11 @@ Dựa **DUY NHẤT** vào nội dung trong phần "Dữ liệu cung cấp" ở t
 **Các quy tắc bắt buộc:**
 
 1.  **Phạm vi thông tin:** Tuyệt đối không được suy diễn, bình luận thêm, hay sử dụng bất kỳ kiến thức nào bên ngoài "Dữ liệu cung cấp". Mọi thông tin trong câu trả lời phải có thể truy vết được về nguồn dữ liệu.
-2.  **Trích dẫn nguồn:** Ngay sau mỗi luận điểm, thông tin, hoặc dữ liệu được trích xuất, bạn **PHẢI** đính kèm nguồn theo định dạng sau:
+2.  **Trích dẫn nguồn:** Ngay sau mỗi câu trả lời, thông tin, hoặc dữ liệu được trích xuất, bạn **PHẢI** đính kèm nguồn theo định dạng sau:
     `(Nguồn: [Số văn bản], [Loại văn bản] - tham khảo tại [Link văn bản])`
+    * Vị trí đặt trích dẫn:
+    - Trường hợp 1 (Nhiều ý, một nguồn): Nếu một nhóm các ý đều đến từ cùng một nguồn, hãy trình bày chúng dưới dạng danh sách và đặt một trích dẫn chung một lần ở cuối danh sách.
+    - Trường hợp 2 (Mỗi ý, một nguồn): Nếu các ý khác nhau đến từ các nguồn khác nhau, hãy đặt trích dẫn nguồn ngay sau mỗi ý tương ứng.
 3.  **Xử lý trường hợp thiếu dữ liệu:** Nếu toàn bộ dữ liệu được cung cấp không chứa thông tin để trả lời câu hỏi, hãy trả lời chính xác như sau:
     `"Dữ liệu được cung cấp không đủ để trả lời câu hỏi này."`
 
