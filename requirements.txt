@@ -2,6 +2,10 @@ gspread
 pandas
 openai
 Flask
+Flask-CORS
 gspread-dataframe<4
 oauth2client
 pyngrok
+python-dotenv
+gunicorn
+google-generativeai

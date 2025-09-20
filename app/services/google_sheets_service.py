@@ -3,13 +3,32 @@ import gspread
 import pandas as pd
 from config import Config # Import từ file config gốc
 import uuid
+import json
+import os
+
 # Lấy tên sheet từ config
 GOOGLE_SHEET_NAME = Config.GOOGLE_SHEET_NAME
 HISTORY_WORKSHEET_NAME = Config.HISTORY_WORKSHEET_NAME
 
 def _get_gspread_client():
     """Hàm nội bộ để khởi tạo client, tránh lặp code."""
-    return gspread.service_account(filename='credentials.json')
+    try:
+        # Thử sử dụng biến môi trường trước (cho Cloud Run)
+        if Config.GOOGLE_SERVICE_ACCOUNT_JSON:
+            # Parse JSON string từ biến môi trường
+            credentials_dict = json.loads(Config.GOOGLE_SERVICE_ACCOUNT_JSON)
+            return gspread.service_account_from_dict(credentials_dict)
+        
+        # Fallback về file credentials.json (cho development local)
+        elif os.path.exists('credentials.json'):
+            return gspread.service_account(filename='credentials.json')
+        
+        else:
+            raise Exception("Không tìm thấy Google Service Account credentials. Vui lòng cấu hình GOOGLE_SERVICE_ACCOUNT_JSON hoặc credentials.json")
+            
+    except Exception as e:
+        print(f"Lỗi khi khởi tạo Google Sheets client: {e}")
+        raise
 
 def get_google_sheet_data(sheet_name=GOOGLE_SHEET_NAME):
     """Kết nối và đọc dữ liệu chính."""
