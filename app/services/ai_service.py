@@ -1,45 +1,73 @@
 # /chatbotAI/app/services/ai_service.py
 import pandas as pd
-from openai import OpenAI
 from config import Config
 import time
 import google.generativeai as genai
-api_key = Config.DEEPSEEK_API_KEY
-# mới thêm max_row=12
-def find_relevant_data(question, dataframe, max_rows=12):
-    # ... (giữ nguyên code của hàm find_relevant_data)
-    question_words = set(question.lower().split())
-    dataframe['search_col'] = dataframe.apply(lambda row: ' '.join(row.astype(str)).lower(), axis=1)
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
-    def relevance_score(row_text):
-        return len(question_words.intersection(row_text.split()))
+# --- CONFIG & MODEL INITIALIZATION ---
+api_key = Config.GEMINI_API_KEY
+genai.configure(api_key=api_key)
 
-    dataframe['relevance'] = dataframe['search_col'].apply(relevance_score)
-    relevant_df = dataframe.sort_values(by='relevance', ascending=False).head(max_rows)
-    relevant_df = relevant_df.drop(columns=['search_col', 'relevance'])
+print("Đang tải model embedding 'bkai-foundation-models/vietnamese-bi-encoder'...")
+embedding_model = SentenceTransformer('bkai-foundation-models/vietnamese-bi-encoder')
+print("Model embedding đã tải xong!")
 
-    if relevant_df.empty or dataframe.loc[relevant_df.index]['relevance'].sum() == 0:
+gemini_model = genai.GenerativeModel('gemini-2.0-flash')
+print("Model Gemini đã sẵn sàng!")
+
+# ✅ SỬA ĐỔI HÀM: NHẬN VÀO `document_embeddings` ĐÃ ĐƯỢC TÍNH SẴN
+def find_relevant_data_semantic(question, dataframe, document_embeddings, max_rows=12):
+    func_start_time = time.perf_counter()
+    print("\n--- [SEMANTIC_TIMER] Bắt đầu tìm kiếm ngữ nghĩa ---")
+
+    if dataframe.empty or document_embeddings is None:
         return pd.DataFrame()
+
+    # Bước 1: Vector hóa CÂU HỎI (chỉ câu hỏi, rất nhanh)
+    t1 = time.perf_counter()
+    question_embedding = embedding_model.encode([question])[0]
+    t2 = time.perf_counter()
+    print(f"--- [SEMANTIC_TIMER] Vector hóa câu hỏi: {t2 - t1:.4f} giây ---")
+
+    # Bước 2: Tính toán độ tương đồng (không cần vector hóa tài liệu nữa)
+    t3 = time.perf_counter()
+    similarities = cosine_similarity([question_embedding], document_embeddings)[0]
+    t4 = time.perf_counter()
+    print(f"--- [SEMANTIC_TIMER] Tính độ tương đồng: {t4 - t3:.4f} giây ---")
+
+    # Bước 3: Lấy ra các hàng có điểm số cao nhất
+    dataframe['similarity'] = similarities
+    relevant_df = dataframe.sort_values(by='similarity', ascending=False).head(max_rows)
+    relevant_df = relevant_df.drop(columns=['similarity'])
+
+    func_end_time = time.perf_counter()
+    print(f"--- [SEMANTIC_TIMER] Tổng thời gian tìm kiếm ngữ nghĩa: {func_end_time - func_start_time:.4f} giây ---")
+
     return relevant_df
-# sửa file answer_question_with_gemini
-def answer_question_with_gemini(question, dataframe):
-    """
-    Gửi câu hỏi và dữ liệu LIÊN QUAN đến Genimi API để nhận câu trả lời.
-    """
+
+# ✅ SỬA ĐỔI HÀM: NHẬN VÀO `document_embeddings` VÀ TRUYỀN ĐI
+def answer_question_with_gemini(question, dataframe, document_embeddings):
     total_start_time = time.perf_counter()
+    print(f"\n{'='*20} BẮT ĐẦU XỬ LÝ YÊU CẦU MỚI {'='*20}")
+
     if not api_key:
-        return "Lỗi: API key của Genimi chưa được cấu hình."
+        return "Lỗi: API key của Gemini chưa được cấu hình.", 0
 
-    # client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com/v1")
+    # BƯỚC 1: Tìm dữ liệu liên quan bằng cách sử dụng các embedding đã tính sẵn
+    relevant_data = find_relevant_data_semantic(question, dataframe, document_embeddings, max_rows=3)
 
-    # BƯỚC 1: Tìm dữ liệu liên quan trước khi gửi cho AI
-    relevant_data = find_relevant_data(question, dataframe, max_rows=1)
-
-    # Nếu không có gì liên quan, dùng toàn bộ dữ liệu. Ngược lại, chỉ dùng dữ liệu liên quan.
+    # BƯỚC 2: Chuẩn bị dữ liệu để gửi
+    t1 = time.perf_counter()
     data_to_send = dataframe if relevant_data.empty else relevant_data
     data_string = data_to_send.to_csv(index=False)
-
-    # BƯỚC 2: Sử dụng prompt cải tiến từ ví dụ của bạn
+    t2 = time.perf_counter()
+    print(f"--- [MAIN_TIMER] Bước 2 - Chuyển đổi DataFrame sang CSV: {t2 - t1:.4f} giây ---")
+    print(f"--- [INFO] Số dòng dữ liệu gửi cho AI: {len(data_to_send)} ---")
+    
+    # BƯỚC 3: Tạo prompt
     prompt = f"""
    **[BẮT ĐẦU PROMPT]**
 
@@ -64,9 +92,7 @@ Dựa **DUY NHẤT** vào nội dung trong phần "Dữ liệu cung cấp" ở t
 1.  **Phạm vi thông tin:** Tuyệt đối không được suy diễn, bình luận thêm, hay sử dụng bất kỳ kiến thức nào bên ngoài "Dữ liệu cung cấp". Mọi thông tin trong câu trả lời phải có thể truy vết được về nguồn dữ liệu.
 2.  **Trích dẫn nguồn:** Ngay sau mỗi câu trả lời, thông tin, hoặc dữ liệu được trích xuất, bạn **PHẢI** đính kèm nguồn theo định dạng sau:
     `(Nguồn: [Số văn bản], [Loại văn bản] - tham khảo tại [Link văn bản])`
-    * Vị trí đặt trích dẫn:
-    - Trường hợp 1 (Nhiều ý, một nguồn): Nếu một nhóm các ý đều đến từ cùng một nguồn, hãy trình bày chúng dưới dạng danh sách và đặt một trích dẫn chung một lần ở cuối danh sách.
-    - Trường hợp 2 (Mỗi ý, một nguồn): Nếu các ý khác nhau đến từ các nguồn khác nhau, hãy đặt trích dẫn nguồn ngay sau mỗi ý tương ứng.
+   
 3.  **Xử lý trường hợp thiếu dữ liệu:** Nếu toàn bộ dữ liệu được cung cấp không chứa thông tin để trả lời câu hỏi, hãy trả lời chính xác như sau:
     `"Dữ liệu được cung cấp không đủ để trả lời câu hỏi này."`
 
@@ -96,22 +122,26 @@ Hy vọng những thông tin trên hữu ích cho bạn!
 
 **[KẾT THÚC PROMPT]**
     """
+
+    # BƯỚC 4: Gọi API
     try:
-        model = genai.GenerativeModel('gemini-2.0-flash') # Tên model đúng
-        
         api_start_time = time.perf_counter()
         print("--- [API_TIMER] Bắt đầu gọi Gemini API... ---")
         
-        response = model.generate_content(prompt)
+        response = gemini_model.generate_content(prompt)
         
         api_end_time = time.perf_counter()
         print(f"--- [API_TIMER] Gemini API phản hồi sau: {api_end_time - api_start_time:.4f} giây ---")
         
-        # Xử lý response của Gemini
         answer = response.text.strip()
         total_end_time = time.perf_counter()
-        return answer, total_end_time - total_start_time
+        total_duration = total_end_time - total_start_time
+        print(f"--- [MAIN_TIMER] Tổng thời gian xử lý yêu cầu: {total_duration:.4f} giây ---")
+        print(f"{'='*20} KẾT THÚC XỬ LÝ YÊU CẦU {'='*20}\n")
+        
+        return answer, total_duration
     except Exception as e:
         print(f"AI Service: Đã xảy ra lỗi khi gọi Gemini API: {e}")
         total_end_time = time.perf_counter()
-        return "Đã có lỗi xảy ra khi kết nối tới dịch vụ AI của Google.", total_end_time - total_start_time
+        total_duration = total_end_time - total_start_time
+        return "Đã có lỗi xảy ra khi kết nối tới dịch vụ AI của Google.", total_duration

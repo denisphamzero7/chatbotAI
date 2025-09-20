@@ -3,16 +3,18 @@ from flask import Blueprint, request, jsonify, current_app
 from app.services import ai_service, google_sheets_service as gs
 import datetime
 
-# Tạo một Blueprint
 chat_bp = Blueprint('chat_api', __name__)
 
+# ✅ HÃY CHẮC CHẮN DÒNG NÀY ĐÚNG LÀ '/chat/ask'
 @chat_bp.route('/ask', methods=['POST'])
 def ask():
-    # Lấy dữ liệu đã được tải sẵn từ application context
+    # Lấy dữ liệu và vector đã được tải sẵn từ application context
     sheet_data_df = current_app.initial_sheet_data
- 
-    if sheet_data_df is None:
-        return jsonify({'error': 'Dữ liệu chưa được tải hoặc tải lỗi.'}), 500
+    document_embeddings = current_app.document_embeddings # ✅ LẤY VECTOR TỪ BỘ NHỚ
+
+    # ✅ KIỂM TRA CẢ DỮ LIỆU VÀ VECTOR
+    if sheet_data_df is None or document_embeddings is None:
+        return jsonify({'error': 'Dữ liệu hoặc vector chưa được tải hoặc tải lỗi.'}), 500
 
     data = request.get_json()
     question = data.get('question')
@@ -20,7 +22,13 @@ def ask():
         return jsonify({'error': 'Câu hỏi không được để trống.'}), 400
 
     print(f"Nhận được câu hỏi: {question}")
-    answer,processing_time = ai_service.answer_question_with_gemini(question, sheet_data_df.copy())
+    
+    # ✅ TRUYỀN `document_embeddings` VÀO HÀM
+    answer, processing_time = ai_service.answer_question_with_gemini(
+        question, 
+        sheet_data_df.copy(), 
+        document_embeddings
+    )
 
     log_data = [
         datetime.datetime.now().strftime("%Y%m%d%H%M%S%f"),
@@ -29,10 +37,12 @@ def ask():
         answer
     ]
     gs.log_chat_history(log_data)
+    
     return jsonify({
         'answer': answer,
         'process_time_seconds': round(processing_time, 2)
     })
+
 
 @chat_bp.route('/history-chat', methods=['GET'])
 def get_log_chat():
