@@ -1,4 +1,5 @@
 bind = '0.0.0.0:8080'
+wsgi_app = 'run:app'
 workers = 2
 threads = 2
 backlog = 512
