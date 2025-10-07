@@ -9,3 +9,5 @@ pyngrok
 python-dotenv
 gunicorn
 google-generativeai
+sentence-transformers
+scikit-learn
