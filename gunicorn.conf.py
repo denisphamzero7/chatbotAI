@@ -1,10 +1,8 @@
 bind = '0.0.0.0:8080'
-wsgi_app = 'run:app'
 workers = 2
 threads = 4
 backlog = 512
 chdir = '/www/wwwroot/apidieuhanhnoivu.danang.gov.vn/chatbotAI'
-user = 'www'
 loglevel = 'info'
 capture_output = True
 preload_app = True
